@@ -570,7 +570,7 @@ import numba
 
 4. python uses `**` as exponential operation, not `^` (C++ uses `power(x,n)` in `cmath`).
 
-5. python performs floor division forint (`1/3=0, -1/3=-1`), but for type conversion (float->int), value always gets closer to 0. 
+5. python performs floor division forint (`1/3=0, -1/3=-1`), but for type conversion (float->int), value always gets closer to 0. (**python2**)
 
 6. python supports taking mod with neg/float. For `x%y`, the sign of result is the same as that of `y`. 
 
@@ -578,13 +578,11 @@ import numba
 
 8. `+`and `*` works with strings for as `strcat` and `repetition`
 
-9. comments uses ` #`
+9. python math functions uses rad(like sin)
 
-10. python math functions uses rad(like sin)
+10. the `None` type is not displayed even in interactive mode, unless using `print`.
 
-11. the `None` type is not displayed even in interactive mode, unless using `print`.
-
-12. variables declared in loops are accessible **outside** loops (like Matlab, as compared against C++), posing potential  
+11. variables declared in loops are accessible **outside** loops (like Matlab, as compared against C++), posing potential  
 
 
 
