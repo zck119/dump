@@ -393,7 +393,15 @@ df.set_index(colname)	# set a column as index instead of default number
 df.reset_index(drop, inplace)	# reset index as default numbers. 
 							# drop: delete current index instead of keeping it as a column
     						# inplace: change index in place instead of creating a new one
+        
 df.reindex(rownames)	# conform index as given. Note that this is not a reset index operation and each row will preserve their indices. This operation changes order and may add empty rows. 
+					# note that if rownames is a MultiIndex, df can choose to align with a specific level, and data may be broadcast to fit in the index. 
+   
+# rename columns
+df.rename(columns=lambda x: xxx)
+df.add_suffix(xxx)
+df.add_prefix(xxx)
+
 ```
 
 **Note**: string indexing is available for rows/columns. 
@@ -445,13 +453,13 @@ df.xs(('name1','name2',...), level=('level1','level2',...),axis=1)
 
 For `pd.merge`: 
 
-`how`: 
+- `how`: 
+  - left/right: keep rows in the first/second dataframe; 
+  - outer: keep rows in either dataframes (add `NaN`)
+  - inner: keep rows in both dataframes
+- `on`: columns used to merge as join key. Use `left_on` and `right_on` if they have different names. Use `left_index` and `right_index` if the key is the index instead of a column
 
-- left/right: keep rows in the first/second dataframe; 
-- outer: keep rows in either dataframes (add `NaN`)
-- inner: keep rows in both dataframes
-
-`on`: columns used to merge as join key. Use `left_on` and `right_on` if they have different names. Use `left_index` and `right_index` if the key is the index instead of a column
+`pd.concat` is also available for merging (more numpy style). 
 
 Fillin NaN: 
 
@@ -465,7 +473,7 @@ s.dropna()					# remove rows with NaN
 s.interpolate()				# use interpolation to fillin na. Default fills in mean. Use method='values' or method='time' to make use of nearset non-missing row indices
 ```
 
-**Note**: Pandas index is immutable, so adding rows/merging rows means creating a new object. 
+**Note**: Pandas index is immutable, so adding rows/merging rows means creating a new object (slow). 
 
 ### Data checking functions:
 
@@ -483,23 +491,73 @@ s.isnull()			# return a boolean Series with True where the element is NaN
 -  `np.nan` is used for `NaN` values, and `NaT` is used for missing datetime types. It's a float type, so columns with missing values can't be integer types - they are converted to float if numeric, or `object` type if mixed with strings or **boolean**
 -  `None==None` returns True, but `np.nan==np.nan` returns False. 
 -  `NaN` are ignored with the column/row is used by `groupby`. 
--  
+-  `df.dropna()` drops rows with `NaN`. Use `thres` argument to drop only rows with more `NaN` than `thres`. 
+
+### Grouping
+
+pandas supports grouping data according to index/column and perform operation on each group. 
+
+```python
+gp = df.groupby("age")  # create a group object based on age
+gp = df.groupby(pd.grouper(xxx))  # for custom group, e.g. ranged group, time interval group
+gp = df.groupby(["age", "sex"])  # group by multiple columns
+
+# per group operation 
+df_normalized = gp.apply(lambda x: x - x.mean())  # apply a function to each group
+df_doubled = gp.transform(lambda x: 2*x)  # apply a transformation to each group
+df_mean = gp.agg("mean") # aggregate each group to a value. Note that np.mean or lambda function also works. 
+						# gp.agg() may take a list of functions to generate multiple columns per group
+```
+
+Any columns used in `groupby()` will be added as a level of index in results. 
+
+**Note**: in `apply()` the function works on each group as if it's a slice of dataframe. In `transform()` the function works on **each column** of each group separately, so it doesn't have the flexibility like `apply()` to do operations on multiple columns / add new columns. 
+
+**Note**: `apply()` may be used applied twice on the first group, so that pandas can choose which implementation of `apply()` it'll use. Don't use functions that run differently at each time. 
+
+
 
 ### Time series
 
 ```python
-# get a rolling sum with window of 3 
-df.rolling(3).sum()
-df.rolling(3).apply(lambda x: ...) # for custom function. note that the function must reduce a vector to a single number
+df.diff(n) # discrete difference. the first n elements are set to NaN
+df.shift(n) # create a shifted version of df
+
+# Useful grouping methods. All can be used to apply customized functions (.apply(func))
+df.rolling(n) # rolling window of size n
+df.resample(t) # strings like "1h" are also supported as time interval. Both downsampling and upsampling are supported. 
+df.expanding() # each group is all the elements up to this point. 
+df.ewm()    # exponentially weighted moving window. Limited supported functions. May NOT work with customized functions. 
 ```
 
-
+All window size can be integer or time interval (called [offset](https://pandas.pydata.org/pandas-docs/stable/timeseries.html#dateoffset-objects) in pandas). strings may be automatically converted to offset. 
 
 ### Performance tips
 
 - Don't use different types in the same column - disables any type-specific optimization
+
 - Use `nlargest/nsmallest` to run linear-time element selection instead of sorting
+
 - in underlying storage, pandas dataframe merges columns of the same type into matrix and save each matrix individually. Empirically, getting a column is faster than getting a row
+
+- When merging multiple dataframes, it's always faster to run `concat` once instead of `concat` them to a large dataframe one by one. 
+
+- Unwrapping an operation into vectorized functions are faster
+
+  ```python
+  # slow
+  df.groupby('age').v1.apply(lambda x: x - x.mean())
+  # faster
+  df.v1 - df.groupby('age').v1.transform('mean')
+  ```
+
+  - **Note**: when using vectorized functions, and if pandas can identify that a vectorized function is being applied, `transform()` is much faster than `apply()`. Otherwise their performance is comparable. 
+
+### Misc Notes
+
+- For any operations on dataframes/series, the values are aligned based on index.
+
+
 
 ## Performance Boost
 
