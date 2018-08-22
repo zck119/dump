@@ -87,13 +87,14 @@ Alternative: const variables and static inline functions.
 - `strtod(str, endptr)`: parse a string into a double, setting endptr pointing to right after ending of the number. `errno` is set to `ERANGE` if parse failed. 
 - `strtol(str, endptr, base)`: same as `strtod`, except with a base setting (usually 2, 8,10 or 16) 
 - `puts`: print a string with a newline.
-- `fscanf(file,pattern,addr)`: given a file handle (returned by `fopen`), scan the next few characters with the given pattern, save in the following addr(s). **Note** that `%s` will read until the next space. 
+- `fscanf(file,pattern,addr)`: given a file handle (returned by `fopen`), scan the next few characters with the given pattern, save in the following addr(s). 
+  - **Note** that `%s` will read until the next space. 
   - **Note** `fscanf` reads until a whitespace, leaving the whitespace in buffer. However, it removes leading whitespace when reading (**expect** for `%c`).  
 - `fread(ptr,size,count,file)`: read `size*count` bytes from file into ptr.  
 - `fseek(file,offset,origin)`: set position indicator of file handle to origin+offset. origin is one of `SEEK_CUR`(current), `SEEK_END`(end), `SEEK_SET`(begining). 
 - `ftell(file)`: return position indicator offset of file handle.
 - `fgetc(file)`: read a character from file handle. returns `EOF` when reaching end of file. 
--`getchar()`: read a character from stdin.  
+- `getchar()`: read a character from stdin.  
 
 
 ## C++
