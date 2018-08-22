@@ -310,30 +310,34 @@ gdb is an interactive tool used to debug the program (like the Lua debugger).
 `gdb <program_name>`
 
 #### Normal commands: 
-`r` or `run`        : run the program until it halts / returns. 
-`q` or `quit`       : quit gdb
-`p` or `print`      : print the return value of a statement
-`bt` or `backtrace` : print the backtrace of the entire stack (of error reporting)
-`f` or `frame`      : go to a specific frame (with a frame number following `f`). In a stack trace of error reporting, we are in the outmost frame by default, and local variables in internal frames (e.g. functions) are not visible. 
+- `r` or `run`        : run the program until it halts / returns. 
+- `q` or `quit`       : quit gdb
+- `p` or `print`      : print the return value of a statement
+- `bt` or `backtrace` : print the backtrace of the entire stack (of error reporting)
+- `f` or `frame`      : go to a specific frame (with a frame number following `f`). In a stack trace of error reporting, we are in the outmost frame by default, and local variables in internal frames (e.g. functions) are not visible. 
 
-`info locals`		: show all local variables
+- `info locals`		: show all local variables
 
-`finish`		: finish current function
+- `finish`		: finish current function
 
 
 ## Using Valgrind
 Valgrind is used for memory debuging, including absence of initialization, memory leak, etc. 
+
 Installation: `sudo apt-get -y install libc6-dbg`
+
 Note that valgrind only detects memory bugs that affect outputs. 
 
 ## Using Perf
 Perf is a profiler tool to record hardware events
-`perf record <program_name> <program_arguments>` record performance events
-`perf report` show the report interactively
+- `perf record <program_name> <program_arguments>` record performance events
+- `perf report` show the report interactively
 
 ## Using Cachegrind
 Cachegrind is a cache and branch-prediction profiler. 
+
 `valgrind --tool=cachegrind --branch-sim=yes <program_name> <program_arguments>`
+
 The output shows cache misses for instructions (L1), first level data (D1) and last level data cache (LL). It also shows branch prediction misses. 
 
 Use `cg_annotate cachegrind.out.pid` to access details about functions. Adding `xxx.c` to see reports about a specific source file. 
@@ -368,10 +372,10 @@ clean:                          # this is what is executed after typing `make cl
 ```
 
 #### Special variables 
-`$@`: target of the rule (the name before colon)
-`$<`: the name of the first prerequisite
-`$^`: name of all prerequisites, with no repeatition
-`$?`: name of all prerequisites newer than the target 
+- `$@`: target of the rule (the name before colon)
+- `$<`: the name of the first prerequisite
+- `$^`: name of all prerequisites, with no repeatition
+- `$?`: name of all prerequisites newer than the target 
 
 
 
