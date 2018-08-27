@@ -202,7 +202,23 @@ In python loops, a iterator is needed (for iterable objects, built-in `iter` is 
 
 A generator function is a function with `yield` statement. A generator is always an iterator (it should be considered as an object, with constructor arguments same as function arguments). Therefore, the generator has `.next()` method to run the generator function body until `yield` statement. The generator always resumes running from the last `yield` statement. 
 
-The advantage of generator over iterator is that it can change parameters using `send()`. When using `y = yield x`, the next time the generator will resume with `y` being the argument in `send()` . `y` will be set as `None` if `next()` is called instead of `send()`.
+##### Coroutine
+
+The generator can also be used as coroutine: 
+
+```python
+def gen_coroutine(num): 
+    x = num
+    while True: 
+        y = yield x  # yield x and wait for input
+        x = y or x	 # y = None if there's no input (i.e. running next())
+        x += 1
+cor = gen_coroutine(10)
+print(next(cor))  # 10
+print(next(cor))  # 11
+cor.send(5)  # y = 5; x = 5; x += 1 (i.e. x = 6). Note that it's executed until the next yield statement
+print(next(cor)) # 7 (note that 6 is yield as the return value of send)
+```
 
 ## Decorator
 
@@ -219,6 +235,8 @@ def decorator(func):
 # for convenience, use @decorator before function definition to make it the decorated version of function
 ```
 
+Use `functools.wraps(func)` to decorate the `wrapper` function so that the decorated function inherits signature, name and docstring from the original function. 
+
 ## Context Manager
 
 For any class with function `__init__`, `__enter__` and `__exit__`, it can be used as a context manager: 
@@ -231,6 +249,8 @@ with ClassName(args) as xxx:
 `__init__` and `__enter__` are executed before the block, while `__exit__` is executed after the block. It's like a `finally` statement that ensures the execution of `__exit__` in case of exception from the block. 
 
 To handle exception, use `__exit__(self, type, value, traceback)` to handle. The exception is considered handled if it returns True, otherwise it's thrown again and pass to the next level up. 
+
+**Note**: the value `xxx` in `with ClassName(args) as xxx`  is the return value of the `__enter__` method, not the class object. 
 
 A convenient way to define context manager is: 
 
@@ -317,7 +337,11 @@ a.__call__()	# resolve to a.__call__, throws an error as it's not a class method
 
 #### `glob`
 
-`glob.glob` searches for files with given pattern and returns a list. Use `glob.iglob` for the corresponding iterator. **Note** that it omits directories without read permission without warning. 
+`glob.glob` searches for files with given pattern and returns a list. Use `glob.iglob` for the corresponding iterator. 
+
+**Note** that it omits directories without read permission without warning. 
+
+**Note** that it omits files starting with dot. Use `os.walk` if dot files are meant to be included. 
 
 #### `collections`
 
@@ -351,6 +375,28 @@ a.__call__()	# resolve to a.__call__, throws an error as it's not a class method
 `numpy.where(condition, x, y)`: return a matrix with values from `x` if condition is true, otherwise `y`
 
 **note**: `numpy.concatenate()` makes a copy
+
+
+
+#### `logging`
+
+`logging` is a builtin python library used for logging events in python process. 
+
+How `logging` works:
+
+-  each log event has a level of importance. 
+  - predefined ones are `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. 
+
+- loggers: a hierarchy of loggers are used. 
+  - Each event propagate iteratively to its parent logger (set `logger.propagate=False` to disable it). 
+  - The hierarchy is determined by the name of loggers (dot notation for child of a parent logger)
+  - A logger has its own level. events below the logger's level won't be sent to its handlers. 
+  - It's recommended that each library sets its own logger (using `logging.getLogger('name')`), so we can track where each logging event is generated. 
+- Each logger can have multiple handlers. Each handler can generate a record for each event passed to that logger. 
+  - Each handler can have its own level, formatter and destination (e.g. stdout, file)
+  - A handler has its own level. events below the handler's level won't be handled (i.e. generate corresponding record) even if it's sent from its logger. 
+
+
 
 ## Library - `Pandas`
 
@@ -553,6 +599,8 @@ All window size can be integer or time interval (called [offset](https://pandas.
 
   - **Note**: when using vectorized functions, and if pandas can identify that a vectorized function is being applied, `transform()` is much faster than `apply()`. Otherwise their performance is comparable. 
 
+- the `csv` library (builtin) is more efficient than `pandas.read_csv()`. Use it if you don't need a dataframe returned. 
+
 ### Misc Notes
 
 - For any operations on dataframes/series, the values are aligned based on index.
@@ -564,6 +612,7 @@ All window size can be integer or time interval (called [offset](https://pandas.
 Contributing factors for Python's poor performance: 
 
 1. Dynamic typing, which involves substantial overhead compared to typed languages like C/Java
+2. `is` is faster than `==`, since it only uses memory location instead of running a `__eq__` function
 
 #### Cython
 
@@ -598,7 +647,21 @@ import numba
 
 ```
 
+#### Profiling
 
+For profiling, basic tools like `timeit`, `line_profiler` and `memory_profiler` are available (all supported in IPython/jupyter notebook). 
+
+`pyrasite` is a cool tool that injects low level commands into a python process to access its variables. All that's required is the pid of the python process. 
+
+`snakeviz` provides good visualization for the profiling results. 
+
+#### Testing
+
+`pytest` is generally recommended for unit testing in python. 
+
+`pytest --cov` can be used to test for coverage. 
+
+`testfixtures` library is a useful library that provides convenient wrapper for most `pytest` tests. 
 
 ## Misc notes
 
@@ -642,7 +705,25 @@ import numba
 
 11. variables declared in loops are accessible **outside** loops (like Matlab, as compared against C++), posing potential  
 
+12. call for `repr()` in string: 
 
+    - For `%` method: `"%r" % obj`
+    - For `str.format()` method: `{x!r}.format(x=obj)`
+
+13. `dict.keys()` is a dynamic object. The dictionary can be updated after `dict.keys()` is created (but not between it's used)
+
+14. Use `r'pattern'` for regex patterns so that backslash are not lost. 
+
+15. For python subprocess to communicate: 
+
+    - `subprocess.PIPE` can be used, but may lead to locking due to full buffer
+    - `p.communicate()` puts all stdout in memory (no locking), but may need use lots of memory. 
+
+16. library `rapidjson` provides faster json parsing than `json`. 
+
+17. When using `argparse`, the `type` argument is actually used as a preprocess function on the input string, so customized preprocess functions can be used here. 
+
+18. `tempfile.NamedTemporaryFile` can be used to create an actual temp file accessible by other threads. Note that it's removed after closed. 
 
 
 ## Migration to Python 3
@@ -673,17 +754,17 @@ http://www.asmeurer.com/python3-presentation/python3-presentation.pdf
 
 10. Keyword only arguments: optional arguments can now appear after variable number of arguments. These optional arguments must be specified by keyword and not by position
 
-   ```python
-   def f(a,*args,debug=False):	# debug has to be explicitly specified by debug=True as variable number of arguments are given to *args
-     pass
-   
-   # to prevent using optional arguments by position
-   def f(a, b, *, debug=False): 
-     # function takes 2 positional arguments. f(1,2) and f(1,2,debug=True) would work, while f(1,2,True) would raise an error
-     pass
-   ```
+  ```python
+  def f(a,*args,debug=False):	# debug has to be explicitly specified by debug=True as variable number of arguments are given to *args
+    pass
+  
+  # to prevent using optional arguments by position
+  def f(a, b, *, debug=False): 
+    # function takes 2 positional arguments. f(1,2) and f(1,2,debug=True) would work, while f(1,2,True) would raise an error
+    pass
+  ```
 
-   ​
+  ​
 
 11. Subgenerators using `yield from` keywords. e.g. `yield from range(10)` is equivalent to `for i in range(10); yield i`
 
@@ -708,7 +789,7 @@ http://www.asmeurer.com/python3-presentation/python3-presentation.pdf
     	stuff
     ```
 
-    
+15. `dict` in python3 is actually ordered. The difference with `collections.OrderedDict` is that it doesn't care about key order when checking equality. 
 
 ## Notes from [wtfpython](https://github.com/satwikkansal/wtfpython)
 
