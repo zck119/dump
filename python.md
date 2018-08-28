@@ -7,11 +7,11 @@ Basic Notes on Python
 
 1. use `import` to import certain module (into a module object), then use dot notation to call variables/functions in it
 
-​         (e.g. `import math; print math.log10(10)  # (output) 1`)
+         (e.g. `import math; print math.log10(10)  # (output) 1`)
 
 2. use `from` & `import` to import certain function/variable from amodule 
 
-​         (e.g. `from math import pi; print pi # (output) 3.141592653589793`)
+         (e.g. `from math import pi; print pi # (output) 3.141592653589793`)
 
  
 
@@ -21,7 +21,7 @@ Basic Notes on Python
 
 - use `def  ` as key word, a colon at the end of header, and uses indentation to indicate body of the function. Note that argument type is not specified (not restrained to one type). This is like template function in C++.
 
-​         (e.g. `def funName(varName):`)
+         (e.g. `def funName(varName):`)
 
 - for variable number of input, use `def funName(var): ` to get all input into a tuple `var`
 - to raise an exception, use `raise`
@@ -66,7 +66,7 @@ while condition:
 
 definition is simple, without the need to state its attribute: 
 
-​                 e.g. `class className(object): // """description """ // methods definition`
+                 e.g. `class className(object): // """description """ // methods definition`
 
 Class may have an attribute, and if so, all instances without such attribute automatically have the same attribute (they can have their own, though)
 
@@ -396,6 +396,37 @@ How `logging` works:
   - Each handler can have its own level, formatter and destination (e.g. stdout, file)
   - A handler has its own level. events below the handler's level won't be handled (i.e. generate corresponding record) even if it's sent from its logger. 
 
+#### `h5py`
+
+Hdf5 is a useful data format that supports fast data IO and slicing. 
+
+Each hdf5 file is like a filesystem, consisting of groups (similar to folders) that consist of other groups and datasets (similar to a file, which stores arrays of data of same datatype). The name of each dataset/group has slashes indicating hierarchical relationships, like paths in filesystems. 
+
+Each group/dataset can have its own attributes (metadata). This is pretty useful to store values that describe the dataset. 
+
+```python
+import h5py 
+import pandas as pd
+import numpy as np
+
+# Using h5py directly
+f = h5py.File('test.h5', 'w')
+f['x'] = np.random.rand(5,10)  # save a np array as a dataset with name '/x'
+f['a/b/c'] = np.random.rand(2,3)  # save as a dataset, while also creating intermediate groups
+f['a'].attrs['test'] = True  # set the attribute on group 'a'
+
+# using pandas 
+df = pd.DataFrame(np.random.rand(8,10))
+store = pd.HDFStore('test2.h5')
+store.put('testdata', df)
+store.get_storer('testdata').attrs.test = True  # set attribute on group
+
+# using pandas if no metadata is required
+df.to_hdf('test3.h5', 'testdata')
+```
+
+
+
 
 
 ## Library - `Pandas`
@@ -682,8 +713,6 @@ For profiling, basic tools like `timeit`, `line_profiler` and `memory_profiler` 
        funcs.append(func)
    results = [f() for f in funcs] # [0,1,2]
    ```
-
-   
 
 2. in try-except-finally statement, a block stops when fully executed/reaches a `return` statement, then the finally block is executed (even when try block has `return` statement). If finally block has a `return` statement, all previous `return` statement are **overwritten**; otherwise return value of pervious blocks are returned. 
 
