@@ -660,19 +660,145 @@ Contributing factors for Python's poor performance:
 1. Dynamic typing, which involves substantial overhead compared to typed languages like C/Java
 2. `is` is faster than `==`, since it only uses memory location instead of running a `__eq__` function
 
-#### Cython
+### Cython
 
-Cython is a package used to compile python codes with user-determined types, thus using type-specific optimization to boost performance. All arguments (including temp variables) needs to have their types specified. 
-
-Syntax: 
-
-- argument: `cdef Typename var`.
-- import: Use `cimport cython` and `cimport numpy as np` as a starting point. 
-- numpy array: `cdef np.float_t [:] x = x_np_array` generates a memory view of numpy array `x`. `np.asarray(x)` returns back the actual numpy array (e.g. used for return values)
+Cython is a package used to compile python codes with user-determined types, thus using type-specific optimization to boost performance. The source code can be simply python code (no optimization, and no speedup), and can have specific type requirements for specific speed up. 
 
 Cython gives a pretty good performance boost, but writing Cython code is pretty time-consuming. 
 
-#### Numba
+```cython
+cdef int n  # declare variable
+cdef int p[1000]  # declare static array 
+
+# cython supports cpp STL. We'll probably use numpy. 
+from libcpp.vector cimport vector
+cdef vector[int] p
+p.reserve(100)  # declare and allocate memory for cpp STL vector
+p.size()  # size of vector
+p.push_back(2)  # append to vector
+
+```
+
+Declaration can use: 
+
+- `def`: pure python. safe to use. assumes every line is python
+- `cdef`: pure C. all variables must be typed. Functions defined with `cdef` are not visible in Python. 
+- `cpdef`: middle ground of `def` and `cdef`. 
+
+#### Class in Cython
+
+```cython
+cdef class TestClass:
+    cdef double x  # object variable
+    def __cinit__(self): 
+        self.x = 1 
+    def __dealloc__(self):  # destructor
+        pass
+```
+
+- `__cinit__` is called on object construction, before the object is constructed, so at this point `self` is not fully constructed yet and we do nothing with it except assigning to its `cdef` fields. 
+- If there's any parameter in `__cinit__`, then any `__init__` of classes (including its derived classes) must match the argument list. 
+
+- A `.pxd` file with class and function signature can be used so that other cython files can import these function signatures. 
+- Use `inline` after `cdef` to make function inline
+- Use type `Py_ssize_t` for python array indices and numpy array indices/shapes.
+- Use `# cython: infer_types=True` at the beginning to have cython infer data types (like iterating indices in `for i in range(10)`)
+
+#### Caveats
+
+- Careful about unsigned types. `cdef unsigned n=10; range(-n,n)` is empty since `-n` is a large positive integer (unsigned underflow)
+- python `float` wraps C `double`, `int` in Python2 wraps C `long`. 
+
+#### Profiling
+
+[Toturial](http://docs.cython.org/en/latest/src/tutorial/profiling_tutorial.html)
+
+- Use `# cython: profile=True` at the top to enable profiling (otherwise `cProfile` won't give meaningful results)
+- Additional directive available for more detailed profiling
+- Note that inline functions still incur function overhead during profiling. Use `@cython.profile(False)` to decorate inline functions to disable profiling on inline functions. 
+
+Sample: 
+
+```python
+# profile.py
+
+import pstats, cProfile
+
+import pyximport
+pyximport.install()
+
+import calc_pi  # cython module
+
+cProfile.runctx("calc_pi.approx_pi()", globals(), locals(), "Profile.prof")  # calc_pi.approx_pi() is the function being profiled
+
+s = pstats.Stats("Profile.prof")
+s.strip_dirs().sort_stats("time").print_stats()
+```
+
+#### String
+
+Due to string types in Python 2 and Python 3, the use of strings in Cython is a little tricky. Avoid if possible. ([Tutorial](http://docs.cython.org/en/latest/src/tutorial/strings.html))
+
+#### Numpy
+
+Cython supports two ways of numpy access: explicit numpy array declaration or typed memoryview (*recommended, faster*). 
+
+##### Typed Memoryview
+
+```cython
+cimport cython
+@cython.boundscheck(False)  # Used to: Deactivate bounds checking
+@cython.wraparound(False)   # Used to: Deactivate negative indexing.
+def compute(int[:, :] arr):
+    result = np.zeros((4,5), dtype=np.intc)
+    cdef int[:, :] result_view = result # use memoryview for faster indexing
+    # do stuff
+    return result
+```
+
+- Typed memoryview provides a pointer to numpy arrays, and fast indexing (since it's using C indexing)
+
+- Note that all indices / shapes should have type of `Py_ssize_t` (`int` can also work, though), including iterating indices in `range()`. 
+
+- Declare an array as contiguous gives extra speedup. Use `[:,:,::1]` for C-contiguous 3D array, and `[::1,:,:]` for Fortran-contiguous 3D array. 
+
+- Use fused types to write function for multiple types (like cpp templates)
+
+  ```cython
+  ctypedef fused my_type:
+      int
+      double
+  def compute(my_type[:, ::1]): 
+      # do stuff
+  ```
+
+- Slicing memory view is available (`cdef int[1:50:2,:] x = arr`)
+- **Note**: `None` is allowed as input for memory view. Use `int [:,:] view not None` to indicate that an input array is not None.  
+- Same as numpy, use `None` as index to add new axis
+- `const` can be used for read-only memoryview
+
+##### Typed Numpy array
+
+- requires GIL while `cdef np.ndarray` (memoryview doesn't need it)
+- Need `cimport numpy as np` at the top for compile-time information
+- For every type in numpy, there's a type with `_t` suffix. The type without `_t` are python types and can be used as numpy `dtype`, while the type with `_t` are the corresponding underlying type (C type identifier) that can be used in `cdef` or defining types in `np.ndarray[dtype_t, ndim]` (requires `cimport numpy`. These two cannot interchange in cython. 
+  - See [link](https://stackoverflow.com/questions/21851985/difference-between-np-int-np-int-int-and-np-int-t-in-cython) for details.
+
+```cython
+import numpy as np
+cimport numpy as np
+DTYPE = np.int  # used in python types, e.g. numpy functions' dtype argument
+ctypedef np.int_t DTYPE_t  # used in cython types
+
+def naive_convolve(np.ndarray[DTYPE_t, ndim=2] f):
+    assert f.dtype == DTYPE
+    cdef DTYPE_t value
+    # do stuff
+```
+
+
+
+### Numba
 
 Numba is a package used to automatically vectorize functions using user-specified types for all arguments. Its writing is much easier (just use decorator), and gives a good performance boost (not as high as Cython, of course, but on the same order). It's usually used for short critical codes. 
 
@@ -693,7 +819,7 @@ import numba
 
 ```
 
-#### Profiling
+### Profiling
 
 For profiling, basic tools like `timeit`, `line_profiler` and `memory_profiler` are available (all supported in IPython/jupyter notebook). 
 
@@ -701,13 +827,17 @@ For profiling, basic tools like `timeit`, `line_profiler` and `memory_profiler` 
 
 `snakeviz` provides good visualization for the profiling results. 
 
-#### Testing
+### Testing
 
 `pytest` is generally recommended for unit testing in python. 
 
 `pytest --cov` can be used to test for coverage. 
 
 `testfixtures` library is a useful library that provides convenient wrapper for most `pytest` tests. 
+
+
+
+### 
 
 ## Misc notes
 
