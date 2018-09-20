@@ -332,6 +332,21 @@ a()		# resolves to Test.__call__(a), print 1
 a.__call__()	# resolve to a.__call__, throws an error as it's not a class method and no argument is given.
 ```
 
+##### `__getattr__`, `__setattr__` and attribute lookup priority
+
+Like `@property` that allows additional operations when getting/setting a specific attribute, there's also support for additional operations whenever there's an attribute access. 
+
+Priority of attribute lookup (within one object): 
+
+1. First check if there's a `__getattribute__` function defined. If not, it'll call `object.__getattribute__` (`object` is the default parent class of all classes)
+   - **Note**: overwriting `__getattribute__()` may cause infinite recursion, since it has the highest priority and is called whenever there's an attribute lookup (including magic method lookup)
+   - All following priority are implemented by `object.__getattribute__()`
+2. If the object has a data descriptor (a `property` with both getter and setter), return it
+3. If the object has an attribute in its `__dict__`, return it. This is the normal attributes we see. 
+4. If the object has a non-data descriptor (a `property` with only getter, but no setter), return it
+5. Call the object's `__getattr__()` function.
+
+**Note**: I currently have no understanding of the behavior when using an attribute with lower priority in this list to overload an attribute with a higher priority in the parent class (e.g. having a normal attribute in a derived sharing the same name with a data descriptor in its parent class). Do NOT try it.  
 
 ## Library
 
@@ -425,7 +440,7 @@ store.get_storer('testdata').attrs.test = True  # set attribute on group
 df.to_hdf('test3.h5', 'testdata')
 ```
 
-
+**Note**: original `h5py` library follows the hdf5 format closely. `pandas.HDFStore` supports more flexibility through `pytables` (built on top of `h5py`), enabling features like **using dictionary in metadata.**  
 
 
 
