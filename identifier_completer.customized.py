@@ -78,6 +78,10 @@ class IdentifierCompleter( GeneralCompleter ):
     #  ) for k, v in request_data._computed_key.items()]
     # -- DEBUG end --
 
+    # This part adds customized autocompletion for non-triggered
+    # identifiers. For triggered identifiers (e.g. completion after
+    # dot in python), customization should be added to the filetype-
+    # specific completer.
     from collections import defaultdict
     insertion_text = None
     query = request_data['query']
@@ -101,7 +105,8 @@ class IdentifierCompleter( GeneralCompleter ):
                                     extra_data = defaultdict(lambda x: 'completion_extra_data_placeholder'))]
     else:
         additional_identifier = []
-    return [ ConvertCompletionData( x ) for x in completions ] + additional_identifier
+    converted_completions = [ ConvertCompletionData( x ) for x in completions ]
+    return converted_completions[:1] + additional_identifier + converted_completions[1:]
     # ==== Manual hack END ====
 
 
